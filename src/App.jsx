@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import AdminPanel from './AdminPanel';
+import AdminLogin from './AdminLogin';
 import EmployeePortal from './EmployeePortal';
 import './index.css';
 
@@ -7,7 +8,8 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Admin route - only accessible via direct URL */}
+        {/* Admin routes */}
+        <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminPanel />} />
 
         {/* Employee route: /auth?data=<base64_employee_id> */}

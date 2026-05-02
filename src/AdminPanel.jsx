@@ -1,34 +1,55 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://jotforms-backend-1.onrender.com/api';
 const DIVISIONS = ['maxmus', 'nucles', 'gladius', 'stimulas', 'glamus', 'nutrius'];
 
 function AdminPanel() {
   const [forms, setForms] = useState([]);
   const [formData, setFormData] = useState({ division: 'maxmus', name: '', url: '' });
   const [editingId, setEditingId] = useState(null);
+  const navigate = useNavigate();
+
+  const token = localStorage.getItem('admin_token');
 
   useEffect(() => {
+    if (!token) {
+      navigate('/admin/login');
+      return;
+    }
     fetchForms();
-  }, []);
+  }, [token, navigate]);
+
+  const getAuthHeader = () => ({
+    headers: { Authorization: `Bearer ${token}` }
+  });
 
   const fetchForms = async () => {
     try {
-      const res = await axios.get(`${API_URL}/admin/forms`);
+      const res = await axios.get(`${API_URL}/admin/forms`, getAuthHeader());
       setForms(res.data);
     } catch (err) {
       console.error('Failed to fetch forms', err);
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        handleLogout();
+      }
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+    navigate('/admin/login');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (editingId) {
-        await axios.put(`${API_URL}/admin/forms/${editingId}`, formData);
+        await axios.put(`${API_URL}/admin/forms/${editingId}`, formData, getAuthHeader());
       } else {
-        await axios.post(`${API_URL}/admin/forms`, formData);
+        await axios.post(`${API_URL}/admin/forms`, formData, getAuthHeader());
       }
       setFormData({ division: 'maxmus', name: '', url: '' });
       setEditingId(null);
@@ -46,7 +67,7 @@ function AdminPanel() {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this form?')) {
       try {
-        await axios.delete(`${API_URL}/admin/forms/${id}`);
+        await axios.delete(`${API_URL}/admin/forms/${id}`, getAuthHeader());
         fetchForms();
       } catch (err) {
         console.error('Failed to delete form', err);
@@ -61,6 +82,9 @@ function AdminPanel() {
           <h1>Admin Dashboard</h1>
           <p style={{ color: 'var(--text-secondary)' }}>Manage forms for all divisions</p>
         </div>
+        <button onClick={handleLogout} className="glass-button" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', borderColor: 'rgba(255, 77, 77, 0.2)' }}>
+          Logout
+        </button>
       </div>
 
       <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem' }}>
