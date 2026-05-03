@@ -26,6 +26,10 @@ function App() {
                 </svg>
               </div>
               <h2>Access Required</h2>
+              <div style={{ color: 'red', marginTop: '1rem', fontSize: '1rem', background: '#222', padding: '10px' }}>
+                <p>Debug Path: {window.location.pathname}</p>
+                <p>Debug Search: {window.location.search}</p>
+              </div>
               <p style={{ color: 'var(--text-secondary)', marginTop: '0.75rem', fontSize: '0.9rem' }}>
                 Please use the secure link provided to you by your administrator.
               </p>
