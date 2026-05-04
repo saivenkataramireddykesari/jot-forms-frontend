@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || 'https://jotforms-backend-1.onrender.com/api';
 
 
 
@@ -13,12 +13,12 @@ function EmployeePortal() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const [employee, setEmployee]     = useState(null);
-  const [forms, setForms]           = useState([]);
+  const [employee, setEmployee] = useState(null);
+  const [forms, setForms] = useState([]);
   const [activeForm, setActiveForm] = useState(null);
-  const [error, setError]           = useState('');
-  const [loading, setLoading]       = useState(true);
-  const [authStep, setAuthStep]     = useState('Initializing...');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [authStep, setAuthStep] = useState('Initializing...');
 
   // ── Guard against React StrictMode double-invocation ──────────────────────
   const hasRun = useRef(false);
