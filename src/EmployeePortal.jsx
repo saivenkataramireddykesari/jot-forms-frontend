@@ -4,23 +4,7 @@ import axios from 'axios';
 
 const API_URL = 'https://jotforms-backend-1.onrender.com/api';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helper: Detect whether a string is already valid Base64
-// ─────────────────────────────────────────────────────────────────────────────
-function isBase64(str) {
-  if (!str) return false;
-  // Pad if needed before testing
-  const padded = str + '=='.slice((str.length % 4 || 4));
-  const base64Regex = /^[A-Za-z0-9+/]+=*$/;
-  if (!base64Regex.test(padded)) return false;
-  try {
-    const decoded = atob(padded);
-    // Re-encode and compare (strip padding for comparison)
-    return btoa(decoded).replace(/=/g, '') === str.replace(/=/g, '');
-  } catch {
-    return false;
-  }
-}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EmployeePortal Component
@@ -53,21 +37,8 @@ function EmployeePortal() {
       return;
     }
 
-    let encodedToken = rawData;
-
-    // ── Step 2: Auto-encode if plain text ─────────────────────────────────
-    if (!isBase64(rawData)) {
-      console.log('[Auth] Plain text detected, encoding to Base64...');
-      setAuthStep('Encoding credentials...');
-      encodedToken = btoa(rawData);
-
-      // ── Step 3: Update URL silently without page reload ───────────────
-      navigate(`/auth?data=${encodedToken}`, { replace: true });
-    } else {
-      console.log('[Auth] Already Base64, skipping encode.');
-    }
-
-    // ── Step 4: Validate with backend ─────────────────────────────────────
+    // ── Step 2: Pass token directly to backend (Assuming already Base64) ──
+    const encodedToken = rawData;
     validateToken(encodedToken);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
