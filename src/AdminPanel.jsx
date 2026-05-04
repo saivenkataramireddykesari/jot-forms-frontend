@@ -77,22 +77,27 @@ function AdminPanel() {
 
   return (
     <div className="container">
-      <div className="header">
+      <div className="header admin-header">
         <div>
           <h1>Admin Dashboard</h1>
           <p style={{ color: 'var(--text-secondary)' }}>Manage forms for all divisions</p>
         </div>
-        <button onClick={handleLogout} className="glass-button" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', borderColor: 'rgba(255, 77, 77, 0.2)' }}>
-          Logout
+        <button onClick={handleLogout} className="glass-button admin-logout-btn" style={{ background: 'rgba(255, 77, 77, 0.1)', color: '#ff4d4d', borderColor: 'rgba(255, 77, 77, 0.2)' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          <span>Logout</span>
         </button>
       </div>
 
-      <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem' }}>
+      <div className="glass-panel admin-form-panel" style={{ padding: '2rem', marginBottom: '2rem' }}>
         <h2>{editingId ? 'Edit Form' : 'Add New Form'}</h2>
         <form onSubmit={handleSubmit} style={{ marginTop: '1rem' }}>
           <div className="form-group">
             <label>Division</label>
-            <div className="division-grid">
+            <div className="division-grid admin-division-grid">
               {DIVISIONS.map(d => (
                 <div
                   key={d}
@@ -127,28 +132,31 @@ function AdminPanel() {
             />
           </div>
 
-          <button type="submit" className="btn-primary">
-            {editingId ? 'Update Form' : 'Add Form'}
-          </button>
-          {editingId && (
-            <button
-              type="button"
-              style={{ marginLeft: '1rem', background: 'transparent', color: 'var(--text-primary)' }}
-              onClick={() => {
-                setEditingId(null);
-                setFormData({ division: 'maxmus', name: '', url: '' });
-              }}
-            >
-              Cancel
+          <div className="admin-form-actions">
+            <button type="submit" className="btn-primary admin-submit-btn">
+              {editingId ? 'Update Form' : 'Add Form'}
             </button>
-          )}
+            {editingId && (
+              <button
+                type="button"
+                className="admin-cancel-btn"
+                style={{ marginLeft: '1rem', background: 'transparent', color: 'var(--text-primary)' }}
+                onClick={() => {
+                  setEditingId(null);
+                  setFormData({ division: 'maxmus', name: '', url: '' });
+                }}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
         </form>
       </div>
 
       <h2>Existing Forms</h2>
-      <div className="grid" style={{ marginTop: '1.5rem' }}>
+      <div className="grid admin-forms-grid" style={{ marginTop: '1.5rem' }}>
         {forms.map(form => (
-          <div key={form.id} className="card glass-panel">
+          <div key={form.id} className="card glass-panel admin-form-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <span className="badge">{form.division}</span>
             </div>
@@ -156,16 +164,16 @@ function AdminPanel() {
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
               {form.url}
             </p>
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', paddingTop: '1rem' }}>
+            <div className="admin-card-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', paddingTop: '1rem' }}>
               <button
-                className="btn-primary"
+                className="btn-primary admin-edit-btn"
                 style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', flex: 1 }}
                 onClick={() => handleEdit(form)}
               >
                 Edit
               </button>
               <button
-                className="btn-danger"
+                className="btn-danger admin-delete-btn"
                 onClick={() => handleDelete(form.id)}
               >
                 Delete

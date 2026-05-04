@@ -154,10 +154,10 @@ function EmployeePortal() {
 
   // ── Main Portal ─────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="employee-portal" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
 
       {/* Top bar */}
-      <div className="glass-panel" style={{
+      <div className="glass-panel employee-portal-header" style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '1rem 2rem', borderRadius: 0,
         borderLeft: 'none', borderRight: 'none', borderTop: 'none',
@@ -185,10 +185,10 @@ function EmployeePortal() {
       </div>
 
       {/* Body */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div className="employee-portal-body" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
         {/* Sidebar */}
-        <div style={{
+        <div className="employee-portal-sidebar" style={{
           width: 280, minWidth: 240, borderRight: '1px solid var(--border-color)',
           padding: '1.5rem 1rem', overflowY: 'auto',
           background: 'rgba(15,23,42,0.4)'
@@ -238,7 +238,7 @@ function EmployeePortal() {
         </div>
 
         {/* iframe panel */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="employee-portal-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {activeForm ? (
             <>
               <div style={{
