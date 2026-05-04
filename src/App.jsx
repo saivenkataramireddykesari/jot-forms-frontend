@@ -4,6 +4,7 @@ import AdminLogin from './AdminLogin';
 import EmployeePortal from './EmployeePortal';
 import './index.css';
 
+// Main Application Component - Triggering fresh build
 function App() {
   return (
     <Router>
