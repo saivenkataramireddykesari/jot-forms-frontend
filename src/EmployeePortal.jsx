@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_URL = 'https://jotforms-backend-1.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL;
 
 
 
