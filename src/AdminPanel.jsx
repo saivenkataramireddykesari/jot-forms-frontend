@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://jotforms-backend-1.onrender.com/api';
-const DIVISIONS = ['maxmus', 'nucles', 'gladius', 'stimulas', 'glamus', 'nutrius'];
+const DIVISIONS = [
+  'NUCLEUS', 'NUTRIUS', 'MAXIMUS', 'GLADIUS', 'STIMULUS', 
+  'IMPETUS', 'GLAMUS', 'GLOBUS KENYA', 'GLOBUS UGANDA', 'GLOBUS NIGERIA'
+];
 
 function AdminPanel() {
   const [forms, setForms] = useState([]);
-  const [formData, setFormData] = useState({ division: 'maxmus', name: '', url: '' });
+  const [formData, setFormData] = useState({ division: 'NUCLEUS', name: '', url: '' });
   const [editingId, setEditingId] = useState(null);
   const navigate = useNavigate();
 
@@ -51,7 +54,7 @@ function AdminPanel() {
       } else {
         await axios.post(`${API_URL}/admin/forms`, formData, getAuthHeader());
       }
-      setFormData({ division: 'maxmus', name: '', url: '' });
+      setFormData({ division: 'NUCLEUS', name: '', url: '' });
       setEditingId(null);
       fetchForms();
     } catch (err) {
@@ -104,7 +107,7 @@ function AdminPanel() {
                   className={`division-box ${formData.division === d ? 'active' : ''}`}
                   onClick={() => setFormData({ ...formData, division: d })}
                 >
-                  {d.toUpperCase()}
+                  {d}
                 </div>
               ))}
             </div>
@@ -143,7 +146,7 @@ function AdminPanel() {
                 style={{ marginLeft: '1rem', background: 'transparent', color: 'var(--text-primary)' }}
                 onClick={() => {
                   setEditingId(null);
-                  setFormData({ division: 'maxmus', name: '', url: '' });
+                  setFormData({ division: 'NUCLEUS', name: '', url: '' });
                 }}
               >
                 Cancel

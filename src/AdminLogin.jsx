@@ -57,7 +57,6 @@ const AdminLogin = () => {
                         <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Username</label>
                         <input
                             type="text"
-                            className="glass-input"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             placeholder="Enter username"
@@ -68,7 +67,6 @@ const AdminLogin = () => {
                         <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Password</label>
                         <input
                             type="password"
-                            className="glass-input"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Enter password"
@@ -77,7 +75,7 @@ const AdminLogin = () => {
                     </div>
 
                     {error && (
-                        <div style={{ color: '#ff4d4d', fontSize: '0.85rem', textAlign: 'center', background: 'rgba(255, 77, 77, 0.1)', padding: '0.75rem', borderRadius: '8px' }}>
+                        <div style={{ color: 'var(--danger)', fontSize: '0.85rem', textAlign: 'center', background: '#fef2f2', padding: '0.75rem', borderRadius: '8px', border: '1px solid #fee2e2' }}>
                             {error}
                         </div>
                     )}
