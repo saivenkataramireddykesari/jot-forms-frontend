@@ -245,7 +245,11 @@ function EmployeePortal() {
             </div>
           </div>
         </div>
-        <span className="badge">{employee.division.toUpperCase()} Division</span>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <span className="badge">{employee.division.toUpperCase()} Division</span>
+          {employee.region && <span className="badge" style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}>{employee.region}</span>}
+          {employee.role && <span className="badge" style={{ background: '#faf5ff', color: '#6b21a8', borderColor: '#e9d5ff' }}>{employee.role}</span>}
+        </div>
       </div>
 
       {/* Body */}

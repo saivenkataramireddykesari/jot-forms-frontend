@@ -10,11 +10,35 @@ const DIVISIONS = [
 
 function AdminPanel() {
   const [forms, setForms] = useState([]);
-  const [formData, setFormData] = useState({ division: 'NUCLEUS', name: '', url: '' });
+  const [formData, setFormData] = useState({ division: 'NUCLEUS', name: '', url: '', region: '', role: '' });
   const [editingId, setEditingId] = useState(null);
+  const [regions, setRegions] = useState([]);
+  const [roles, setRoles] = useState([]);
   const navigate = useNavigate();
 
   const token = localStorage.getItem('admin_token');
+
+  const getAuthHeader = () => ({
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  const fetchRegionsForDivision = async (d) => {
+    try {
+      const res = await axios.get(`${API_URL}/admin/regions?division=${d}`, getAuthHeader());
+      setRegions(res.data);
+    } catch (err) {
+      console.error('Failed to fetch regions', err);
+    }
+  };
+
+  const fetchRolesForRegion = async (d, r) => {
+    try {
+      const res = await axios.get(`${API_URL}/admin/roles?division=${d}&region=${r}`, getAuthHeader());
+      setRoles(res.data);
+    } catch (err) {
+      console.error('Failed to fetch roles', err);
+    }
+  };
 
   useEffect(() => {
     if (!token) {
@@ -22,11 +46,8 @@ function AdminPanel() {
       return;
     }
     fetchForms();
+    fetchRegionsForDivision('NUCLEUS');
   }, [token, navigate]);
-
-  const getAuthHeader = () => ({
-    headers: { Authorization: `Bearer ${token}` }
-  });
 
   const fetchForms = async () => {
     try {
@@ -46,6 +67,25 @@ function AdminPanel() {
     navigate('/admin/login');
   };
 
+  const handleDivisionChange = async (d) => {
+    setFormData(prev => ({ ...prev, division: d, region: '', role: '' }));
+    setRegions([]);
+    setRoles([]);
+    await fetchRegionsForDivision(d);
+  };
+
+  const handleRegionChange = async (r) => {
+    setFormData(prev => ({ ...prev, region: r, role: '' }));
+    setRoles([]);
+    if (r) {
+      await fetchRolesForRegion(formData.division, r);
+    }
+  };
+
+  const handleRoleChange = (role) => {
+    setFormData(prev => ({ ...prev, role }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -54,17 +94,47 @@ function AdminPanel() {
       } else {
         await axios.post(`${API_URL}/admin/forms`, formData, getAuthHeader());
       }
-      setFormData({ division: 'NUCLEUS', name: '', url: '' });
+      setFormData({ division: 'NUCLEUS', name: '', url: '', region: '', role: '' });
       setEditingId(null);
-      fetchForms();
+      setRegions([]);
+      setRoles([]);
+      await fetchForms();
+      await fetchRegionsForDivision('NUCLEUS');
     } catch (err) {
       console.error('Failed to save form', err);
     }
   };
 
-  const handleEdit = (form) => {
-    setFormData({ division: form.division, name: form.name, url: form.url });
+  const handleEdit = async (form) => {
     setEditingId(form.id);
+    try {
+      const regionsRes = await axios.get(`${API_URL}/admin/regions?division=${form.division}`, getAuthHeader());
+      setRegions(regionsRes.data);
+      
+      if (form.region) {
+        const rolesRes = await axios.get(`${API_URL}/admin/roles?division=${form.division}&region=${form.region}`, getAuthHeader());
+        setRoles(rolesRes.data);
+      } else {
+        setRoles([]);
+      }
+      
+      setFormData({
+        division: form.division,
+        name: form.name,
+        url: form.url,
+        region: form.region || '',
+        role: form.role || ''
+      });
+    } catch (err) {
+      console.error('Error preparing edit metadata', err);
+      setFormData({
+        division: form.division,
+        name: form.name,
+        url: form.url,
+        region: form.region || '',
+        role: form.role || ''
+      });
+    }
   };
 
   const handleDelete = async (id) => {
@@ -105,11 +175,62 @@ function AdminPanel() {
                 <div
                   key={d}
                   className={`division-box ${formData.division === d ? 'active' : ''}`}
-                  onClick={() => setFormData({ ...formData, division: d })}
+                  onClick={() => handleDivisionChange(d)}
                 >
                   {d}
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+            <div>
+              <label htmlFor="region-select">Region</label>
+              <select
+                id="region-select"
+                value={formData.region}
+                onChange={(e) => handleRegionChange(e.target.value)}
+                required
+                disabled={regions.length === 0}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  background: 'white',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.95rem'
+                }}
+              >
+                <option value="">Select Region</option>
+                {regions.map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="role-select">Role</label>
+              <select
+                id="role-select"
+                value={formData.role}
+                onChange={(e) => handleRoleChange(e.target.value)}
+                required
+                disabled={roles.length === 0}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  background: 'white',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.95rem'
+                }}
+              >
+                <option value="">Select Role</option>
+                {roles.map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -146,7 +267,10 @@ function AdminPanel() {
                 style={{ marginLeft: '1rem', background: 'transparent', color: 'var(--text-primary)' }}
                 onClick={() => {
                   setEditingId(null);
-                  setFormData({ division: 'NUCLEUS', name: '', url: '' });
+                  setFormData({ division: 'NUCLEUS', name: '', url: '', region: '', role: '' });
+                  setRegions([]);
+                  setRoles([]);
+                  fetchRegionsForDivision('NUCLEUS');
                 }}
               >
                 Cancel
@@ -159,12 +283,14 @@ function AdminPanel() {
       <h2>Existing Forms</h2>
       <div className="grid admin-forms-grid" style={{ marginTop: '1.5rem' }}>
         {forms.map(form => (
-          <div key={form.id} className="card glass-panel admin-form-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div key={form.id} className="card glass-panel admin-form-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
               <span className="badge">{form.division}</span>
+              {form.region && <span className="badge" style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' }}>{form.region}</span>}
+              {form.role && <span className="badge" style={{ background: '#f3e8ff', color: '#6b21a8', borderColor: '#e9d5ff' }}>{form.role}</span>}
             </div>
-            <h3 className="card-title">{form.name}</h3>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
+            <h3 className="card-title" style={{ marginTop: 0 }}>{form.name}</h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', wordBreak: 'break-all', marginBottom: '1.5rem' }}>
               {form.url}
             </p>
             <div className="admin-card-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', paddingTop: '1rem' }}>
