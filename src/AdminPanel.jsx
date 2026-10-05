@@ -8,6 +8,10 @@ const DIVISIONS = [
   'IMPETUS', 'GLAMUS', 'GLOBUS KENYA', 'GLOBUS UGANDA', 'GLOBUS NIGERIA'
 ];
 
+const CATEGORIES = ['Strategy Booklet', 'Monthly Strategy Guide', 'Other'];
+const YEARS = ['2023', '2024', '2025', '2026', '2027'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
 // ─── Multi-Select Dropdown with Checkboxes ────────────────────────────────────
 const MultiSelectDropdown = ({ id, options, selected, onChange, placeholder, disabled }) => {
   const [open, setOpen] = useState(false);
@@ -146,11 +150,15 @@ const toStr = (arr) => Array.isArray(arr) ? arr.filter(Boolean).join(',') : (arr
 function AdminPanel() {
   const [forms, setForms] = useState([]);
   const [formData, setFormData] = useState({
-    division: 'NUCLEUS', name: '', url: '', regions: [], roles: []
+    division: 'NUCLEUS', category: 'Strategy Booklet', name: '', url: '', regions: [], roles: []
   });
   const [editingId, setEditingId] = useState(null);
   const [regions, setRegions] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [urlType, setUrlType] = useState('link'); // 'link' | 'pdf'
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [uploadedFileName, setUploadedFileName] = useState('');
   const navigate = useNavigate();
 
   const token = localStorage.getItem('admin_token');
@@ -233,6 +241,7 @@ function AdminPanel() {
       division: formData.division,
       name: formData.name,
       url: formData.url,
+      category: formData.category,
       region: toStr(formData.regions),
       role: toStr(formData.roles),
     };
@@ -242,13 +251,50 @@ function AdminPanel() {
       } else {
         await axios.post(`${API_URL}/admin/forms`, payload, getAuthHeader());
       }
-      setFormData({ division: 'NUCLEUS', name: '', url: '', regions: [], roles: [] });
+      setFormData({ division: 'NUCLEUS', category: 'Strategy Booklet', name: '', url: '', regions: [], roles: [] });
       setEditingId(null);
       setRoles([]);
+      setUrlType('link');
+      setUploadedFileName('');
       await fetchForms();
       await fetchRegionsForDivision('NUCLEUS');
     } catch (err) {
       console.error('Failed to save form', err);
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Please select a valid PDF file (.pdf)');
+      return;
+    }
+
+    setUploadingPdf(true);
+    setUploadedFileName(file.name);
+
+    const uploadData = new FormData();
+    uploadData.append('file', file);
+
+    try {
+      const res = await axios.post(`${API_URL}/admin/upload-pdf`, uploadData, {
+        headers: {
+          ...getAuthHeader().headers,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (res.data && res.data.url) {
+        setFormData(prev => ({ ...prev, url: res.data.url }));
+      }
+    } catch (err) {
+      console.error('Failed to upload PDF', err);
+      alert('PDF upload failed: ' + (err.response?.data?.detail || err.message));
+      setUploadedFileName('');
+    } finally {
+      setUploadingPdf(false);
     }
   };
 
@@ -263,10 +309,19 @@ function AdminPanel() {
     } catch (err) {
       console.error('Error loading edit metadata', err);
     }
+    const isPdfUrl = form.url && (form.url.toLowerCase().endsWith('.pdf') || form.url.includes('/uploads/'));
+    setUrlType(isPdfUrl ? 'pdf' : 'link');
+    if (isPdfUrl) {
+      setUploadedFileName(form.url.split('/').pop());
+    } else {
+      setUploadedFileName('');
+    }
+
     setFormData({
       division: form.division,
       name: form.name,
       url: form.url,
+      category: form.category || 'Other',
       regions: selectedRegions,
       roles: selectedRoles,
     });
@@ -285,8 +340,10 @@ function AdminPanel() {
 
   const handleCancel = () => {
     setEditingId(null);
-    setFormData({ division: 'NUCLEUS', name: '', url: '', regions: [], roles: [] });
+    setFormData({ division: 'NUCLEUS', category: 'Strategy Booklet', name: '', url: '', regions: [], roles: [] });
     setRoles([]);
+    setUrlType('link');
+    setUploadedFileName('');
     fetchRegionsForDivision('NUCLEUS');
   };
 
@@ -327,67 +384,217 @@ function AdminPanel() {
           </div>
 
           {/* Region & Role — Multi-Select Dropdowns */}
+          {formData.category === 'Other' && (
+            <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+              <div>
+                <label htmlFor="region-select" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.5rem' }}>
+                  Region
+                  {formData.regions.length > 0 && (
+                    <span style={{ background: '#6366f1', color: 'white', borderRadius: '999px', fontSize: '0.7rem', padding: '1px 7px', fontWeight: 700 }}>
+                      {formData.regions.length}
+                    </span>
+                  )}
+                </label>
+                <MultiSelectDropdown
+                  id="region-select"
+                  options={regions}
+                  selected={formData.regions}
+                  onChange={handleRegionsChange}
+                  placeholder={regions.length === 0 ? 'Loading regions...' : 'Select Regions'}
+                  disabled={regions.length === 0}
+                />
+              </div>
+              <div>
+                <label htmlFor="role-select" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.5rem' }}>
+                  Role
+                  {formData.roles.length > 0 && (
+                    <span style={{ background: '#8b5cf6', color: 'white', borderRadius: '999px', fontSize: '0.7rem', padding: '1px 7px', fontWeight: 700 }}>
+                      {formData.roles.length}
+                    </span>
+                  )}
+                </label>
+                <MultiSelectDropdown
+                  id="role-select"
+                  options={roles}
+                  selected={formData.roles}
+                  onChange={handleRolesChange}
+                  placeholder={formData.regions.length === 0 ? 'Select a region first' : roles.length === 0 ? 'Loading roles...' : 'Select Roles'}
+                  disabled={formData.regions.length === 0 || roles.length === 0}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Category & Form Name */}
           <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
             <div>
-              <label htmlFor="region-select" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.5rem' }}>
-                Region
-                {formData.regions.length > 0 && (
-                  <span style={{ background: '#6366f1', color: 'white', borderRadius: '999px', fontSize: '0.7rem', padding: '1px 7px', fontWeight: 700 }}>
-                    {formData.regions.length}
-                  </span>
-                )}
-              </label>
-              <MultiSelectDropdown
-                id="region-select"
-                options={regions}
-                selected={formData.regions}
-                onChange={handleRegionsChange}
-                placeholder={regions.length === 0 ? 'Loading regions...' : 'Select Regions'}
-                disabled={regions.length === 0}
-              />
+              <label htmlFor="category-select">Category</label>
+              <select
+                id="category-select"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value, name: '' })}
+                required
+                style={{
+                  width: '100%', padding: '0.65rem 0.75rem', borderRadius: '8px',
+                  border: '1px solid var(--border-color, #e5e7eb)', background: 'white',
+                  fontSize: '0.92rem', cursor: 'pointer', outline: 'none', minHeight: '44px'
+                }}
+              >
+                <option value="" disabled hidden>-- Select Category --</option>
+                {CATEGORIES.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
             </div>
             <div>
-              <label htmlFor="role-select" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.5rem' }}>
-                Role
-                {formData.roles.length > 0 && (
-                  <span style={{ background: '#8b5cf6', color: 'white', borderRadius: '999px', fontSize: '0.7rem', padding: '1px 7px', fontWeight: 700 }}>
-                    {formData.roles.length}
-                  </span>
-                )}
+              <label htmlFor="form-name-input">
+                {formData.category === 'Strategy Booklet' ? 'Select Year' :
+                 formData.category === 'Monthly Strategy Guide' ? 'Select Month' : 'Form Name'}
               </label>
-              <MultiSelectDropdown
-                id="role-select"
-                options={roles}
-                selected={formData.roles}
-                onChange={handleRolesChange}
-                placeholder={formData.regions.length === 0 ? 'Select a region first' : roles.length === 0 ? 'Loading roles...' : 'Select Roles'}
-                disabled={formData.regions.length === 0 || roles.length === 0}
-              />
+              {formData.category === 'Strategy Booklet' ? (
+                <select
+                  id="form-name-input"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                  style={{
+                    width: '100%', padding: '0.65rem 0.75rem', borderRadius: '8px',
+                    border: '1px solid var(--border-color, #e5e7eb)', background: 'white',
+                    fontSize: '0.92rem', cursor: 'pointer', outline: 'none', minHeight: '44px'
+                  }}
+                >
+                  <option value="" disabled hidden>-- Select Year --</option>
+                  {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              ) : formData.category === 'Monthly Strategy Guide' ? (
+                <select
+                  id="form-name-input"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                  style={{
+                    width: '100%', padding: '0.65rem 0.75rem', borderRadius: '8px',
+                    border: '1px solid var(--border-color, #e5e7eb)', background: 'white',
+                    fontSize: '0.92rem', cursor: 'pointer', outline: 'none', minHeight: '44px'
+                  }}
+                >
+                  <option value="" disabled hidden>-- Select Month --</option>
+                  {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              ) : (
+                <input
+                  id="form-name-input"
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                  placeholder="Enter form name"
+                  style={{
+                    width: '100%', padding: '0.65rem 0.75rem', borderRadius: '8px',
+                    border: '1px solid var(--border-color, #e5e7eb)', background: 'white',
+                    fontSize: '0.92rem', outline: 'none', minHeight: '44px'
+                  }}
+                />
+              )}
             </div>
           </div>
 
-          {/* Form Name */}
+          {/* Form URL / PDF File Upload */}
           <div className="form-group">
-            <label>Form Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g. Daily Standup Report"
-              required
-            />
-          </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '8px' }}>
+              <label style={{ margin: 0 }}>Form Resource (Link or PDF File)</label>
+              <div style={{ display: 'flex', gap: '4px', background: '#f3f4f6', padding: '3px', borderRadius: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => setUrlType('link')}
+                  style={{
+                    padding: '4px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    borderRadius: '4px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: urlType === 'link' ? '#6366f1' : 'transparent',
+                    color: urlType === 'link' ? 'white' : '#6b7280',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  🔗 Link / URL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUrlType('pdf')}
+                  style={{
+                    padding: '4px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    borderRadius: '4px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: urlType === 'pdf' ? '#6366f1' : 'transparent',
+                    color: urlType === 'pdf' ? 'white' : '#6b7280',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  📄 Upload PDF File
+                </button>
+              </div>
+            </div>
 
-          {/* Form URL */}
-          <div className="form-group">
-            <label>Form URL (Jotform)</label>
-            <input
-              type="url"
-              value={formData.url}
-              onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-              placeholder="https://form.jotform.com/..."
-              required
-            />
+            {urlType === 'link' ? (
+              <input
+                type="url"
+                value={formData.url}
+                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                placeholder="https://form.jotform.com/... or https://drive.google.com/..."
+                required={!formData.url}
+              />
+            ) : (
+              <div style={{
+                border: '2px dashed var(--border-color, #e5e7eb)',
+                borderRadius: '10px',
+                padding: '1.25rem',
+                textAlign: 'center',
+                background: '#fafafa',
+                position: 'relative'
+              }}>
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={handleFileUpload}
+                  disabled={uploadingPdf}
+                  style={{
+                    position: 'absolute',
+                    top: 0, left: 0, width: '100%', height: '100%',
+                    opacity: 0, cursor: 'pointer'
+                  }}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  {uploadingPdf ? (
+                    <span style={{ fontSize: '0.9rem', color: '#6366f1', fontWeight: 600 }}>Uploading PDF file...</span>
+                  ) : formData.url && (formData.url.toLowerCase().endsWith('.pdf') || formData.url.includes('/uploads/')) ? (
+                    <div>
+                      <span style={{ fontSize: '0.9rem', color: '#059669', fontWeight: 600, display: 'block' }}>
+                        ✓ PDF Ready: {uploadedFileName || formData.url.split('/').pop()}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>Click or drop to replace PDF</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <span style={{ fontSize: '0.9rem', color: '#374151', fontWeight: 600, display: 'block' }}>
+                        Click to select PDF file or drag & drop
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Only PDF files (.pdf)</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="admin-form-actions">
@@ -405,44 +612,91 @@ function AdminPanel() {
         </form>
       </div>
 
-      {/* Existing Forms */}
-      <h2>Existing Forms</h2>
-      <div className="grid admin-forms-grid" style={{ marginTop: '1.5rem' }}>
-        {forms.map(form => {
-          const formRegions = toArray(form.region);
-          const formRoles = toArray(form.role);
-          return (
-            <div key={form.id} className="card glass-panel admin-form-card"
-              style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
-                <span className="badge">{form.division}</span>
-                {formRegions.map(r => (
-                  <span key={r} className="badge"
-                    style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' }}>{r}</span>
-                ))}
-                {formRoles.map(r => (
-                  <span key={r} className="badge"
-                    style={{ background: '#f3e8ff', color: '#6b21a8', borderColor: '#e9d5ff' }}>{r}</span>
-                ))}
-              </div>
-              <h3 className="card-title" style={{ marginTop: 0 }}>{form.name}</h3>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', wordBreak: 'break-all', marginBottom: '1.5rem' }}>
-                {form.url}
-              </p>
-              <div className="admin-card-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', paddingTop: '1rem' }}>
-                <button className="btn-primary admin-edit-btn"
-                  style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', flex: 1 }}
-                  onClick={() => handleEdit(form)}>
-                  Edit
-                </button>
-                <button className="btn-danger admin-delete-btn" onClick={() => handleDelete(form.id)}>
-                  Delete
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {/* Dashboard View */}
+      {selectedCategory === null ? (
+        <>
+          <h2>Form Categories</h2>
+          <div className="grid admin-forms-grid" style={{ marginTop: '1.5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+            {CATEGORIES.map(category => {
+              const count = forms.filter(f => (f.category || 'Other') === category).length;
+              return (
+                <div key={category} className="card glass-panel admin-form-card"
+                  style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'transform 0.2s', border: '1px solid var(--border-color, #e5e7eb)' }}
+                  onClick={() => setSelectedCategory(category)}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 className="card-title" style={{ margin: 0 }}>{category}</h3>
+                    <span style={{ background: '#6366f1', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.8rem', fontWeight: 600 }}>
+                      {count}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                    Click to view {category} forms
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h2>{selectedCategory} Forms</h2>
+            <button
+              onClick={() => setSelectedCategory(null)}
+              style={{
+                padding: '0.5rem 1rem', background: '#f3f4f6', color: '#374151',
+                border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer',
+                fontWeight: 600, fontSize: '0.875rem'
+              }}
+            >
+              ← Back to Categories
+            </button>
+          </div>
+          <div className="grid admin-forms-grid">
+            {forms.filter(f => (f.category || 'Other') === selectedCategory).length === 0 ? (
+              <p style={{ color: '#6b7280' }}>No forms found in this category.</p>
+            ) : (
+              forms.filter(f => (f.category || 'Other') === selectedCategory).map(form => {
+                const formRegions = toArray(form.region);
+                const formRoles = toArray(form.role);
+                return (
+                  <div key={form.id} className="card glass-panel admin-form-card"
+                    style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
+                      <span className="badge">{form.division}</span>
+                      {formRegions.map(r => (
+                        <span key={r} className="badge"
+                          style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' }}>{r}</span>
+                      ))}
+                      {formRoles.map(r => (
+                        <span key={r} className="badge"
+                          style={{ background: '#f3e8ff', color: '#6b21a8', borderColor: '#e9d5ff' }}>{r}</span>
+                      ))}
+                    </div>
+                    <h3 className="card-title" style={{ marginTop: 0 }}>{form.name}</h3>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', wordBreak: 'break-all', marginBottom: '1.5rem' }}>
+                      {form.url}
+                    </p>
+                    <div className="admin-card-actions" style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', paddingTop: '1rem' }}>
+                      <button className="btn-primary admin-edit-btn"
+                        style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', flex: 1 }}
+                        onClick={() => handleEdit(form)}>
+                        Edit
+                      </button>
+                      <button className="btn-danger admin-delete-btn" onClick={() => handleDelete(form.id)}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

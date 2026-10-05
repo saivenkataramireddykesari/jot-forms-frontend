@@ -7,6 +7,130 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://jotforms-backend-1.onre
 
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Protected Document Viewer (Prevents Right-Click & Screen Captures inside Iframe)
+// ─────────────────────────────────────────────────────────────────────────────
+let isInteractingWithIframe = false;
+
+function ProtectedDocViewer({ url, title, id, getIframeUrl, employeeId, division }) {
+  const [pointerEvents, setPointerEvents] = useState('auto');
+  const [isScreenProtected, setIsScreenProtected] = useState(false);
+
+  useEffect(() => {
+    const handleWindowBlur = () => {
+      if (!isInteractingWithIframe) {
+        setIsScreenProtected(true);
+      }
+    };
+
+    const handleWindowFocus = () => {
+      setIsScreenProtected(false);
+    };
+
+    const handleKeyUp = (e) => {
+      if (e.key === 'PrintScreen' || e.keyCode === 44) {
+        setIsScreenProtected(true);
+        try { navigator.clipboard.writeText(''); } catch (_) { }
+        setTimeout(() => setIsScreenProtected(false), 2500);
+      }
+    };
+
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  const handleMouseDown = (e) => {
+    if (e.button === 2 || e.which === 3) {
+      e.preventDefault();
+      e.stopPropagation();
+      setPointerEvents('auto');
+    } else {
+      isInteractingWithIframe = true;
+      setPointerEvents('none');
+      setTimeout(() => {
+        isInteractingWithIframe = false;
+      }, 800);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setTimeout(() => {
+      setPointerEvents('auto');
+    }, 400);
+  };
+
+  return (
+    <div
+      style={{ position: 'relative', flex: 1, width: '100%', height: '100%', overflow: 'hidden' }}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      onMouseLeave={() => setPointerEvents('auto')}
+    >
+      {/* Transparent Protection Overlay for Right-Click Interception */}
+      <div
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 30,
+          pointerEvents: pointerEvents,
+          background: 'transparent'
+        }}
+      />
+
+
+
+      {/* Screen Protection Blur Mask */}
+      {isScreenProtected && (
+        <div style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0, bottom: 0,
+          zIndex: 100,
+          background: '#0f172a',
+          color: '#ffffff',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '1rem',
+          textAlign: 'center',
+          padding: '2rem'
+        }}>
+          <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <h2 style={{ color: 'white', margin: 0, fontSize: '1.5rem' }}>Security Protection Active</h2>
+          <p style={{ color: '#94a3b8', maxWidth: '420px', margin: 0, fontSize: '0.95rem', lineHeight: '1.5' }}>
+            Screen capture, window switching, or external snapshot tools trigger automatic protection mask to protect confidential documents.
+          </p>
+        </div>
+      )}
+
+      {/* Document Iframe */}
+      <iframe
+        key={id}
+        src={getIframeUrl(url)}
+        title={title}
+        allow="camera; microphone; geolocation"
+        sandbox="allow-scripts allow-same-origin allow-forms"
+        style={{ width: '100%', height: '100%', border: 'none' }}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // EmployeePortal Component
 // ─────────────────────────────────────────────────────────────────────────────
 function EmployeePortal() {
@@ -64,7 +188,7 @@ function EmployeePortal() {
       // Check for existing session in localStorage
       const savedEmp = localStorage.getItem('emp_data');
       const savedJwt = localStorage.getItem('emp_jwt');
-      
+
       if (savedEmp && savedJwt) {
         setEmployee(JSON.parse(savedEmp));
         setAuthStep('Restoring session...');
@@ -91,7 +215,7 @@ function EmployeePortal() {
       localStorage.setItem('emp_data', JSON.stringify(employee));
 
       setEmployee(employee);
-      
+
       // Clean URL only after successful login
       if (shouldCleanup) {
         navigate('/auth', { replace: true });
@@ -121,9 +245,12 @@ function EmployeePortal() {
     }
   };
 
-  // Append employee info to iframe URL for Jotform prefill
+  // Append employee info to iframe URL for Jotform prefill or disable PDF toolbar controls
   const getIframeUrl = (url) => {
     if (!url) return '';
+    if (url.toLowerCase().endsWith('.pdf') || url.includes('/uploads/')) {
+      return url.includes('#') ? url : `${url}#toolbar=0&navpanes=0&scrollbar=1`;
+    }
     try {
       const u = new URL(url);
       u.searchParams.set('employeeId', employee.employee_id);
@@ -190,6 +317,7 @@ function EmployeePortal() {
 
   // ── Main Portal ─────────────────────────────────────────────────────────────
   if (activeForm) {
+    const isPdf = activeForm.url && (activeForm.url.toLowerCase().endsWith('.pdf') || activeForm.url.includes('/uploads/'));
     return (
       <div className="fullscreen-form">
         <div className="fullscreen-header">
@@ -200,18 +328,22 @@ function EmployeePortal() {
             </svg>
             <span>Back to Forms</span>
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{activeForm.name}</span>
             <span className="badge">{employee.division}</span>
+            {isPdf && (
+              <span className="badge" style={{ background: '#fef3c7', color: '#92400e', borderColor: '#fde68a' }}>Protected Document</span>
+            )}
           </div>
-          <div style={{ width: 100 }}></div> {/* Spacer for balance */}
+          <div style={{ width: 100 }}></div> {/* Same-page view only */}
         </div>
-        <iframe
-          key={activeForm.id}
-          src={getIframeUrl(activeForm.url)}
+        <ProtectedDocViewer
+          url={activeForm.url}
           title={activeForm.name}
-          allow="camera; microphone; geolocation"
-          style={{ flex: 1, width: '100%', border: 'none' }}
+          id={activeForm.id}
+          getIframeUrl={getIframeUrl}
+          employeeId={employee?.employee_id}
+          division={employee?.division}
         />
       </div>
     );
@@ -271,58 +403,52 @@ function EmployeePortal() {
               <p>No forms have been assigned to your division yet.</p>
             </div>
           ) : (
-            <div className="grid">
-              {forms.map(form => (
-                <button
-                  key={form.id}
-                  onClick={() => setActiveForm(form)}
-                  className="glass-panel"
-                  style={{
-                    width: '100%', textAlign: 'left', padding: '1.5rem',
-                    borderRadius: '12px', border: '1px solid var(--border-color)',
-                    cursor: 'pointer', transition: 'all 0.2s ease',
-                    background: 'white', color: 'var(--text-primary)',
-                    display: 'flex', alignItems: 'center', gap: '1.25rem'
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--primary-color)';
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border-color)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'var(--shadow)';
-                  }}
-                >
-                  <div style={{
-                    width: 48, height: 48, borderRadius: '12px',
-                    background: '#eff6ff', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', color: 'var(--primary-color)'
-                  }}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                    </svg>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', textAlign: 'left' }}>
+              {['Strategy Booklet', 'Monthly Strategy Guide', 'Other'].map(category => {
+                const categoryForms = forms.filter(f => (f.category || 'Other') === category);
+                if (categoryForms.length === 0) return null;
+                return (
+                  <div key={category}>
+                    <h3 style={{ 
+                      fontSize: '1.1rem', color: 'var(--text-secondary)', 
+                      borderBottom: '1px solid var(--border-color)', 
+                      paddingBottom: '0.5rem', marginBottom: '1rem' 
+                    }}>
+                      {category === 'Strategy Booklet' ? 'Yearly Strategy Guides' : category}
+                    </h3>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {categoryForms.map(form => (
+                        <li key={form.id}>
+                          <button
+                            onClick={() => setActiveForm(form)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'var(--primary-color)',
+                              cursor: 'pointer',
+                              fontSize: '1.05rem',
+                              fontWeight: 500,
+                              padding: '0.25rem 0',
+                              textAlign: 'left',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem'
+                            }}
+                            onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
+                            onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                              <polyline points="14 2 14 8 20 8" />
+                            </svg>
+                            {form.name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: '1.125rem' }}>{form.name}</div>
-                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                      Click to open and fill
-                    </div>
-                  </div>
-                  <div style={{
-                    width: 32, height: 32, borderRadius: '50%',
-                    background: '#f8fafc', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)'
-                  }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                  </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

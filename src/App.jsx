@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import AdminPanel from './AdminPanel';
 import AdminLogin from './AdminLogin';
@@ -6,6 +7,63 @@ import './index.css';
 
 // Main Application Component - Triggering fresh build
 function App() {
+  useEffect(() => {
+    // 1. Disable Right-Click Context Menu
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+    };
+
+    // 2. Disable Keyboard Shortcuts (Print, Save, Copy, DevTools, View Source, PrintScreen)
+    const handleKeyDown = (e) => {
+      // Disable PrintScreen key
+      if (e.key === 'PrintScreen' || e.keyCode === 44) {
+        e.preventDefault();
+        try {
+          navigator.clipboard.writeText('');
+        } catch (_) {}
+      }
+
+      // Disable Ctrl+P / Cmd+P (Print)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+      }
+
+      // Disable Ctrl+S / Cmd+S (Save)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+      }
+
+      // Disable Ctrl+U / Cmd+U (View Source)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U')) {
+        e.preventDefault();
+      }
+
+      // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (DevTools)
+      if (
+        e.key === 'F12' ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c'))
+      ) {
+        e.preventDefault();
+      }
+    };
+
+    // 3. Disable Copy & Dragging
+    const handleCopy = (e) => e.preventDefault();
+    const handleDrag = (e) => e.preventDefault();
+
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('copy', handleCopy);
+    document.addEventListener('dragstart', handleDrag);
+
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('copy', handleCopy);
+      document.removeEventListener('dragstart', handleDrag);
+    };
+  }, []);
+
   return (
     <Router>
       <Routes>
