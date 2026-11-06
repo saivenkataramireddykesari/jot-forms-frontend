@@ -2,24 +2,33 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://jotforms-backend-1.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Protected Document Viewer (Prevents Right-Click & Screen Captures inside Iframe)
+// Protected Document Viewer (Prevents Right-Click & Screen Captures inside Viewer)
 // ─────────────────────────────────────────────────────────────────────────────
-let isInteractingWithIframe = false;
-
-function ProtectedDocViewer({ url, title, id, getIframeUrl, employeeId, division }) {
-  const [pointerEvents, setPointerEvents] = useState('auto');
+function ProtectedDocViewer({ url, title, id, getIframeUrl, employeeId, division, isPdf }) {
+  const iframeRef = useRef(null);
   const [isScreenProtected, setIsScreenProtected] = useState(false);
+  const isPdfDoc = Boolean(isPdf || (url && (url.toLowerCase().endsWith('.pdf') || url.includes('/uploads/'))));
 
   useEffect(() => {
     const handleWindowBlur = () => {
-      if (!isInteractingWithIframe) {
+      // Small timeout allows browser to update document.activeElement
+      setTimeout(() => {
+        // If focus shifted to the iframe or document viewer, do not trigger screen mask
+        if (
+          document.activeElement &&
+          (document.activeElement.tagName === 'IFRAME' ||
+            document.activeElement.tagName === 'EMBED' ||
+            document.activeElement.tagName === 'OBJECT')
+        ) {
+          return;
+        }
         setIsScreenProtected(true);
-      }
+      }, 150);
     };
 
     const handleWindowFocus = () => {
@@ -45,51 +54,11 @@ function ProtectedDocViewer({ url, title, id, getIframeUrl, employeeId, division
     };
   }, []);
 
-  const handleMouseDown = (e) => {
-    if (e.button === 2 || e.which === 3) {
-      e.preventDefault();
-      e.stopPropagation();
-      setPointerEvents('auto');
-    } else {
-      isInteractingWithIframe = true;
-      setPointerEvents('none');
-      setTimeout(() => {
-        isInteractingWithIframe = false;
-      }, 800);
-    }
-  };
-
-  const handleMouseUp = () => {
-    setTimeout(() => {
-      setPointerEvents('auto');
-    }, 400);
-  };
-
   return (
     <div
       style={{ position: 'relative', flex: 1, width: '100%', height: '100%', overflow: 'hidden' }}
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-      onMouseLeave={() => setPointerEvents('auto')}
     >
-      {/* Transparent Protection Overlay for Right-Click Interception */}
-      <div
-        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 30,
-          pointerEvents: pointerEvents,
-          background: 'transparent'
-        }}
-      />
-
-
-
       {/* Screen Protection Blur Mask */}
       {isScreenProtected && (
         <div style={{
@@ -114,24 +83,39 @@ function ProtectedDocViewer({ url, title, id, getIframeUrl, employeeId, division
           <p style={{ color: '#94a3b8', maxWidth: '420px', margin: 0, fontSize: '0.95rem', lineHeight: '1.5' }}>
             Screen capture, window switching, or external snapshot tools trigger automatic protection mask to protect confidential documents.
           </p>
+          <button
+            onClick={() => setIsScreenProtected(false)}
+            style={{
+              marginTop: '1rem',
+              padding: '0.55rem 1.25rem',
+              background: 'var(--primary-color, #6366f1)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 500,
+              fontSize: '0.9rem'
+            }}
+          >
+            Resume Viewing
+          </button>
         </div>
       )}
 
-      {/* Document Iframe */}
+      {/* Document Iframe (Sandboxing is removed for PDFs because browsers block native PDF rendering in sandboxed iframes) */}
       <iframe
+        ref={iframeRef}
         key={id}
         src={getIframeUrl(url)}
         title={title}
         allow="camera; microphone; geolocation"
-        sandbox="allow-scripts allow-same-origin allow-forms"
-        style={{ width: '100%', height: '100%', border: 'none' }}
+        sandbox={isPdfDoc ? undefined : "allow-scripts allow-same-origin allow-forms allow-popups"}
+        style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
       />
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// EmployeePortal Component
 // ─────────────────────────────────────────────────────────────────────────────
 function EmployeePortal() {
   const [searchParams] = useSearchParams();
@@ -344,6 +328,7 @@ function EmployeePortal() {
           getIframeUrl={getIframeUrl}
           employeeId={employee?.employee_id}
           division={employee?.division}
+          isPdf={isPdf}
         />
       </div>
     );
